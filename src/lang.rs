@@ -1,18 +1,30 @@
 #[derive(Debug, PartialEq, Eq)]
 pub enum TokenKind {
+
+    // Keywords
     Inputs,
     Outputs,
-    And,
-    Or,
-    Not,
-    Identifier(String),
     In,
     Out,
+ 
+    // Punctuation
     Comma,
     ParenOpen,
     ParenClose,
     Newline,
     EOF,
+
+    // Gates
+    And,
+    Or,
+    Not,
+    Nand,
+    Nor,
+    Xor,
+    Xnor,
+
+    // Identifier
+    Identifier(String),
 }
 
 /// The main lexer struct that handles tokenization of source code
@@ -131,11 +143,15 @@ impl Lexer {
         match id_str.to_uppercase().as_str() {
             "INPUTS" => TokenKind::Inputs,
             "OUTPUTS" => TokenKind::Outputs,
+            "IN" => TokenKind::In,
+            "OUT" => TokenKind::Out,
             "AND" => TokenKind::And,
             "OR" => TokenKind::Or,
             "NOT" => TokenKind::Not,
-            "IN" => TokenKind::In,
-            "OUT" => TokenKind::Out,
+            "NAND" => TokenKind::Nand,
+            "NOR" => TokenKind::Nor,
+            "XOR" => TokenKind::Xor,
+            "XNOR" => TokenKind::Xnor,
             _ => TokenKind::Identifier(id_str),
         }
     }
@@ -145,11 +161,6 @@ impl Lexer {
 #[derive(Debug)]
 pub enum LexerError {
     UnexpectedCharacter(char, Location),
-    UnterminatedStringLiteral(Location),
-    UnterminatedCharLiteral(Location),
-    InvalidNumberFormat(Location),
-    UnexpectedToken(String, Location),
-    UnterminatedMultilineComment(Location),
 }
 
 /// Implements Display trait for LexerError to provide human-readable error messages
@@ -158,17 +169,6 @@ impl std::fmt::Display for LexerError {
         match self {
             LexerError::UnexpectedCharacter(c, loc) => 
                 write!(f, "Unexpected character '{}' at line {}, column {}", c, loc.line, loc.column),
-            LexerError::UnterminatedStringLiteral(loc) => 
-                write!(f, "Unterminated string literal at line {}, column {}", loc.line, loc.column),
-            LexerError::UnterminatedCharLiteral(loc) => 
-                write!(f, "Unterminated character literal at line {}, column {}", loc.line, loc.column),
-            LexerError::InvalidNumberFormat(loc) => 
-                write!(f, "Invalid number format at line {}, column {}", loc.line, loc.column),
-            LexerError::UnexpectedToken(token, loc) => 
-                write!(f, "Unexpected token '{}' at line {}, column {}", token, loc.line, loc.column),
-            LexerError::UnterminatedMultilineComment(loc) =>
-                write!(f, "Unterminated multi-line comment at line {}, column {}", loc.line, loc.column),
         }
     }
 }
-
