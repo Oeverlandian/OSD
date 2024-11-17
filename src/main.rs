@@ -1,23 +1,28 @@
 mod lang;
 
 fn main() {
-    let source = r#"
-    INPUTS a, b
-    OUTPUTS out
-    AND gate1 IN(a, b) OUT(temp)
-    NOT gate2 IN(temp) OUT(out)
-    "#.to_string();
 
-    let mut lexer = lang::Lexer::new(source);
-    
-    loop {
-        match lexer.get_next_token() {
-            Ok(lang::TokenKind::EOF) => break,
-            Ok(token) => println!("{:?}", token),
-            Err(e) => {
-                eprintln!("Lexer error: {}", e);
-                break;
-            }
+    let source_code = match std::fs::read_to_string("program_1.dls") {
+        Ok(content) => content,
+        Err(err) => {
+            eprintln!("Error reading file: {}", err);
+            return;
         }
+    };
+
+    let mut lexer = lang::Lexer::new(source_code);
+    let mut tokens = vec![];
+    while let Ok(token) = lexer.get_next_token() {
+        if token == lang::TokenKind::EOF {
+            break;
+        }
+        tokens.push(token);
     }
+
+    let mut parser = lang::Parser::new(tokens);
+    match parser.parse_program() {
+        Ok(program) => println!("{:?}", program),
+        Err(err) => println!("Error: {}", err),
+    }
+
 }

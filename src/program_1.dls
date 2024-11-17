@@ -1,0 +1,4 @@
+INPUTS a, b, c
+OUTPUTS result
+AND gate1 IN(a, b) OUT(temp1)
+OR  gate2 IN(temp1, c) OUT(result)
