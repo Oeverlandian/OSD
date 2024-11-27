@@ -2,7 +2,7 @@ mod lang;
 
 fn main() {
 
-    let source_code = match std::fs::read_to_string("program_1.dls") {
+    let source_code = match std::fs::read_to_string("program_1.osd") {
         Ok(content) => content,
         Err(err) => {
             eprintln!("Error reading file: {}", err);
