@@ -1,18 +1,16 @@
-# README
-
-## Description
+# Description
 
 Oever's Simple Digital Logic Simulator (OSD), is a simple digital logic simulator which aims at easily simulating logic gates with a simple domain-specific-language (DSL) called Leverscript. Leverscript/OSD end with .osd
 
-## Features
+# Features
 
 - Basic Logic Gates (AND, OR, NOT, NAND, NOR, XOR and XNOR gates)
 
-## Planned Features
+# Planned Features
 
 - Advanced Logic Components like flip-flops
  
-## Leverscript Grammar
+# Leverscript Grammar
 
 ```ENBF
 Program ::= inputs_section outputs_section component_list
