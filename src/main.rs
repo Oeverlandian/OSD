@@ -1,4 +1,5 @@
 mod lang;
+mod eval;
 
 fn main() {
 
