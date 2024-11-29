@@ -98,6 +98,16 @@ impl Lexer {
         }
     }
 
+    fn skip_line_comment(&mut self) {
+        while let Some(c) = self.current_char {
+            if c == '\n' {
+                self.advance();
+                break;
+            } else {
+                self.advance();
+            }
+        }
+    }
     /// Main tokenization function that returns the next token from the source
     /// Returns Result<TokenKind, LexerError> to handle potential errors
     pub fn get_next_token(&mut self) -> Result<TokenKind, LexerError> {
@@ -110,6 +120,10 @@ impl Lexer {
 
         match self.current_char {
             Some(c) if c.is_alphabetic() => Ok(self.identifier()),
+            Some('#') => { // Comment
+                self.skip_line_comment(); 
+                return self.get_next_token();
+            },
             Some(',') => { self.advance(); Ok(TokenKind::Comma)},
             Some('(') => { self.advance(); Ok(TokenKind::ParenOpen)},
             Some(')') => { self.advance(); Ok(TokenKind::ParenClose)},
