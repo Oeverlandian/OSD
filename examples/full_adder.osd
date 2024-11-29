@@ -1,0 +1,9 @@
+INPUTS a, b, Cin
+OUTPUTS Sum, Cout
+
+XOR gate1 IN(a, b) OUT(temp1)
+XOR gate2 IN(temp1, Cin) OUT(Sum)
+
+AND gate3 IN(temp1, Cin) OUT(temp1)
+AND gate4 IN(a, b) OUT(temp2)
+OR gate5 IN(temp1, temp2) OUT(Cout)
