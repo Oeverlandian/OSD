@@ -25,6 +25,7 @@ Run ```osd generate {file_path}``` in your terminal and it will generate a truth
 - NOR 
 - XOR 
 - XNOR
+- Subcircuits
 
 # Planned Features
 
@@ -49,11 +50,28 @@ Components:
 
 ## Example
 ```Leverscript
-INPUTS a, b, c                  # Defines three inputs: a, b and c
-OUTPUTS r                       # Defines the output: r
+SUBCIRCUIT full_adder                       # Declares a subcircuit "full_adder"
 
-AND gate1 IN(a, b) OUT(t)       # Defines an AND gate with identifier gate1, inputs a and b and output t
-OR  gate2 IN(t, c) OUT(r)       # Defines an OR gate with identifier gate2, inputs t and c and output r
+INPUTS a, b Cin                             # Declares the inputs for the subcircuit
+OUTPUTS Sum, Cout                           # Declares the outputs for the subcircuit
+
+XOR gate1 IN(a, b) OUT(temp1)               # Declares a XOR gate
+XOR gate2 IN(temp1, Cin) OUT(Sum)           # Declares a XOR gate
+
+AND gate3 IN(temp1, Cin) OUT(temp2)         # Declares an AND gate
+AND gate4 IN(a, b) OUT(temp3)               # Declares an AND gate
+OR gate5 IN(temp2, temp3) OUT(Cout)         # Declares an OR gate
+
+END                                         # Ends the subcircuit declaration
+
+INPUTS a0, b0, a1, b1, a2, b2, a3, b3, Cin  # Declares the global inputs
+OUTPUTS s0, s1, s2, s3, Cout                # Declares the global outputs
+
+full_adder IN(a0, b0, Cin) OUT(s0, C0)      # Declares a full_adder subcircuit as a component
+full_adder IN(a1, b1, C0) OUT(s1, C1)       # Declares a full_adder subcircuit as a component
+
+full_adder IN(a2, b2, C1) OUT(s2, C2)       # Declares a full_adder subcircuit as a component
+full_adder IN(a3, b3, C2) OUT(s3, Cout)     # Declares a full_adder subcircuit as a component
 ```
 ## Leverscript Grammar
 

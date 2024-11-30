@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::fmt::{self};
 
+use clap::builder::TryMapValueParser;
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum TokenKind {
 
@@ -327,6 +329,15 @@ impl Parser {
 
 impl Parser {
     fn parse_inputs_section(&mut self) -> Result<Vec<String>, String> {
+
+        loop {
+            if self.current_token() == Some(&TokenKind::Newline) {
+                self.advance();
+            } else {
+               break;
+            }
+        }
+
         self.expect(TokenKind::Inputs)?; // Expect "INPUTS"
         let mut inputs = vec![];
 
