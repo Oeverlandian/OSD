@@ -1,3 +1,6 @@
+use std::collections::HashMap;
+use std::fmt::{self};
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum TokenKind {
 
@@ -22,6 +25,10 @@ pub enum TokenKind {
     Nor,
     Xor,
     Xnor,
+
+    // Subcircuits
+    Subcircuit,
+    End,
 
     // Identifier
     Identifier(String),
@@ -119,29 +126,26 @@ impl Lexer {
         }
 
         match self.current_char {
-            Some(c) if c.is_alphabetic() => Ok(self.identifier()),
-            Some('#') => { // Comment
-                self.skip_line_comment(); 
-                return self.get_next_token();
-            },
-            Some(',') => { self.advance(); Ok(TokenKind::Comma)},
-            Some('(') => { self.advance(); Ok(TokenKind::ParenOpen)},
-            Some(')') => { self.advance(); Ok(TokenKind::ParenClose)},
-            Some('\n') => { // Newlines work now
-                self.advance();
-                Ok(TokenKind::Newline)
-            },
-            Some(c) => {
-                self.advance();
-                Err(LexerError::UnexpectedCharacter(c, location))
-            },
             None => Ok(TokenKind::EOF),
+            Some(c) => match c {
+                c if c.is_alphabetic() => Ok(self.identifier()?),
+                '#' => {
+                    self.skip_line_comment();
+                    self.get_next_token()
+                },
+                ',' => { self.advance(); Ok(TokenKind::Comma) },
+                '(' => { self.advance(); Ok(TokenKind::ParenOpen) },
+                ')' => { self.advance(); Ok(TokenKind::ParenClose) },
+                '\n' => { self.advance(); Ok(TokenKind::Newline) },
+                _ => Err(LexerError::UnexpectedCharacter(c, location)),
+            }
         }
     }
 
     /// Processes identifiers and keywords
     /// Returns either a keyword token or an identifier token
-    pub fn identifier(&mut self) -> TokenKind {
+    pub fn identifier(&mut self) -> Result<TokenKind, LexerError> {
+        let location = self.get_location();
         let mut id_str = String::new();
 
         while let Some(c) = self.current_char {
@@ -153,8 +157,12 @@ impl Lexer {
             }
         }
 
+        if id_str.is_empty() {
+            return Err(LexerError::InvalidIdentifier(id_str, location));
+        }
+
         // Match against known keywords, return Identifier if not a keyword
-        match id_str.to_uppercase().as_str() {
+        Ok(match id_str.to_uppercase().as_str() {
             "INPUTS" => TokenKind::Inputs,
             "OUTPUTS" => TokenKind::Outputs,
             "IN" => TokenKind::In,
@@ -166,8 +174,10 @@ impl Lexer {
             "NOR" => TokenKind::Nor,
             "XOR" => TokenKind::Xor,
             "XNOR" => TokenKind::Xnor,
+            "SUBCIRCUIT" => TokenKind::Subcircuit,
+            "END" => TokenKind::End,
             _ => TokenKind::Identifier(id_str),
-        }
+        })
     }
 }
 
@@ -175,20 +185,34 @@ impl Lexer {
 #[derive(Debug)]
 pub enum LexerError {
     UnexpectedCharacter(char, Location),
+    InvalidIdentifier(String, Location),
 }
 
+impl std::error::Error for LexerError {}
+
 /// Implements Display trait for LexerError to provide human-readable error messages
-impl std::fmt::Display for LexerError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for LexerError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             LexerError::UnexpectedCharacter(c, loc) => 
                 write!(f, "Unexpected character '{}' at line {}, column {}", c, loc.line, loc.column),
+            LexerError::InvalidIdentifier(id, loc) => 
+                write!(f, "Invalid identifier '{}' at line {}, column {}", id, loc.line, loc.column),
         }
     }
 }
 
 #[derive(Debug)]
+pub struct Subcircuit {
+    pub name: String,
+    pub inputs: Vec<String>,
+    pub outputs: Vec<String>,
+    pub components: Vec<Component>,
+}
+
+#[derive(Debug)]
 pub struct Program {
+    pub subcircuits: HashMap<String, Subcircuit>,
     pub inputs: Vec<String>,
     pub outputs: Vec<String>,
     pub components: Vec<Component>,
@@ -199,7 +223,7 @@ pub struct Component {
     pub gate_type: GateType,
     pub identifier: String,
     pub inputs: Vec<String>,
-    pub output: String,
+    pub outputs: Vec<String>,
 }
 
 #[derive(Debug)]
@@ -211,6 +235,7 @@ pub enum GateType {
     Nor,
     Xor,
     Xnor,
+    Subcircuit(String),
 }
 
 pub struct Parser {
@@ -247,10 +272,56 @@ impl Parser {
 
 impl Parser {
     pub fn parse_program(&mut self) -> Result<Program, String> {
+
+        // Parse subcircuits first
+        let mut subcircuits = HashMap::new();
+        
+        while let Some(token) = self.current_token() {
+            match token {
+                TokenKind::Subcircuit => {
+                    let subcircuit = self.parse_subcircuit()?;
+                    subcircuits.insert(subcircuit.name.clone(), subcircuit);
+                }
+                _ => break // Break if it's not a subcircuit
+            }
+        }
+
         let inputs = self.parse_inputs_section()?;
         let outputs = self.parse_outputs_section()?;
         let components = self.parse_component_list()?;
-        Ok(Program { inputs, outputs, components })
+        Ok(Program { subcircuits, inputs, outputs, components })
+    }
+}
+
+impl Parser {
+    fn parse_subcircuit(&mut self) -> Result<Subcircuit, String> {
+        self.expect(TokenKind::Subcircuit)?;
+        
+        let name = if let Some(TokenKind::Identifier(name)) = self.current_token() {
+            name.clone()
+        } else {
+            return Err("Expected subcircuit name".to_string());
+        };
+        self.advance();
+        
+        self.expect(TokenKind::Newline)?;
+        
+        let inputs = self.parse_inputs_section()?;
+        
+        let outputs = self.parse_outputs_section()?;
+        
+        let components = self.parse_component_list()?;
+        
+        self.expect(TokenKind::End)?;
+        
+        self.expect(TokenKind::Newline)?;
+        
+        Ok(Subcircuit {
+            name,
+            inputs,
+            outputs,
+            components,
+        })
     }
 }
 
@@ -309,13 +380,13 @@ impl Parser {
         while let Some(token) = self.current_token() {
             match token {
                 TokenKind::And | TokenKind::Or | TokenKind::Not 
-                | TokenKind::Nand | TokenKind::Nor | TokenKind::Xor | TokenKind::Xnor => {
+                | TokenKind::Nand | TokenKind::Nor | TokenKind::Xor | TokenKind::Xnor | TokenKind::Identifier(_) => {
                     components.push(self.parse_component()?);
                 }
                 TokenKind::Newline => {
                     self.advance();
                 }
-                TokenKind::EOF => break,
+                TokenKind::End | TokenKind::EOF => break,
                 _ => return Err(format!("Unexpected token in component list: {:?}", self.current_token()).to_string()),
             }
         }
@@ -324,6 +395,7 @@ impl Parser {
     }
 
     fn parse_component(&mut self) -> Result<Component, String> {
+
         let gate_type = match self.current_token() {
             Some(TokenKind::And) => GateType::And,
             Some(TokenKind::Or) => GateType::Or,
@@ -332,21 +404,32 @@ impl Parser {
             Some(TokenKind::Nor) => GateType::Nor,
             Some(TokenKind::Xor) => GateType::Xor,
             Some(TokenKind::Xnor) => GateType::Xnor,
-            _ => return Err("Unexpected token for gate type".to_string()),
+            Some(TokenKind::Identifier(name)) => {
+                GateType::Subcircuit(name.clone())
+            }
+            _ => return Err(format!(
+                "Unexpected token for gate type: {:?}",
+                self.current_token()
+            )),
         };
-
+    
         self.advance();
-
-        let identifier = if let Some(TokenKind::Identifier(name)) = self.current_token() {
-            name.clone()
+    
+        let identifier = if let GateType::Subcircuit(_) = gate_type {
+            "".to_string()
         } else {
-            return Err("Expected identifier for component".to_string());
+            if let Some(TokenKind::Identifier(name)) = self.current_token() {
+                let id = name.clone();
+                self.advance();
+                id
+            } else {
+                return Err("Expected identifier for component".to_string());
+            }
         };
-
-        self.advance();
+    
         self.expect(TokenKind::In)?;
         self.expect(TokenKind::ParenOpen)?;
-
+    
         let mut inputs = vec![];
         while let Some(TokenKind::Identifier(name)) = self.current_token() {
             inputs.push(name.clone());
@@ -357,25 +440,31 @@ impl Parser {
                 break;
             }
         }
-
+    
         self.expect(TokenKind::ParenClose)?;
+
+        
         self.expect(TokenKind::Out)?;
         self.expect(TokenKind::ParenOpen)?;
-
-        let output = if let Some(TokenKind::Identifier(name)) = self.current_token() {
-            name.clone()
-        } else {
-            return Err("Expected output identifier for component".to_string());
-        };
-
-        self.advance();
+    
+        let mut outputs = vec![];
+        while let Some(TokenKind::Identifier(name)) = self.current_token() {
+            outputs.push(name.clone());
+            self.advance();
+            if let Some(TokenKind::Comma) = self.current_token() {
+                self.advance();
+            } else {
+                break; 
+            }
+        }
+    
         self.expect(TokenKind::ParenClose)?;
-
+        
         Ok(Component {
             gate_type,
             identifier,
             inputs,
-            output,
+            outputs,
         })
-    }
+    }    
 }

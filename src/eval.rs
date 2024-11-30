@@ -3,31 +3,56 @@ use crate::lang::*;
 
 // Evaluator
 
-fn evaluate_circuit(program: &Program, input_values: Vec<bool>) -> HashMap<String, bool> {
-    let mut values = HashMap::new();
+fn evaluate_circuit(program: &Program, subcircuit_name: Option<&str>, input_values: HashMap<String, bool>) -> HashMap<String, bool> {
+    let mut values = input_values.clone();
+   
+    let components = if let Some(name) = subcircuit_name {
+        &program.subcircuits[name].components
+    } else {
+        &program.components
+    };
 
-    for (i, input) in program.inputs.iter().enumerate() {
-        values.insert(input.clone(), input_values[i]);
-    }
-
-    for component in &program.components {
+    for component in components {
         let input_values: Vec<bool> = component.inputs.iter()
             .map(|input| *values.get(input).expect("Input not found"))
             .collect();
 
-        let result = match component.gate_type {
-            GateType::And => eval_and(input_values),
-            GateType::Or => eval_or(input_values),
-            GateType::Not => eval_not(input_values[0]),
-            GateType::Nand => eval_nand(input_values),
-            GateType::Nor => eval_nor(input_values),
-            GateType::Xor => eval_xor(input_values),
-            GateType::Xnor => eval_xnor(input_values),
+        let results = match &component.gate_type {
+            GateType::And => vec![eval_and(input_values)],
+            GateType::Or => vec![eval_or(input_values)],
+            GateType::Not => vec![eval_not(input_values[0])],
+            GateType::Nand => vec![eval_nand(input_values)],
+            GateType::Nor => vec![eval_nor(input_values)],
+            GateType::Xor => vec![eval_xor(input_values)],
+            GateType::Xnor => vec![eval_xnor(input_values)],
+            GateType::Subcircuit(subcircuit_name) => {
+                let subcircuit = &program.subcircuits[subcircuit_name];
+               
+                let mut subcircuit_inputs = HashMap::new();
+                for (i, input_name) in subcircuit.inputs.iter().enumerate() {
+                    subcircuit_inputs.insert(
+                        input_name.clone(),
+                        input_values[i]
+                    );
+                }
+               
+                let subcircuit_results = evaluate_circuit(
+                    program,
+                    Some(subcircuit_name),
+                    subcircuit_inputs
+                );
+               
+                subcircuit.outputs.iter()
+                    .map(|output_name| *subcircuit_results.get(output_name)
+                        .expect("Subcircuit output not found"))
+                    .collect()
+            }
         };
 
-        values.insert(component.output.clone(), result);
+        for (output_name, result) in component.outputs.iter().zip(results.iter()) {
+            values.insert(output_name.clone(), *result);
+        }
     }
-
     values
 }
 
@@ -64,12 +89,17 @@ fn eval_xnor(inputs: Vec<bool>) -> bool {
 pub fn print_truth_table(program: &Program) {
     let input_combinations = generate_input_combinations(program.inputs.len());
 
-    let header: Vec<String> = program.inputs.iter().map(|i| i.clone()).collect();
+    let header: Vec<String> = program.inputs.iter().cloned().collect();
     let header_str = header.join(", ");
     println!("{}, {}", header_str, program.outputs.join(", "));
 
     for combination in input_combinations {
-        let results = evaluate_circuit(program, combination);
+        let mut input_values = HashMap::new();
+        for (i, input) in program.inputs.iter().enumerate() {
+            input_values.insert(input.clone(), combination[i]);
+        }
+
+        let results = evaluate_circuit(program, None, input_values);
 
         let input_str: Vec<String> = program.inputs.iter()
             .map(|i| results[i].to_string())

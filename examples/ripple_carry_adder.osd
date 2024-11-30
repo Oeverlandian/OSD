@@ -1,0 +1,20 @@
+SUBCIRCUIT full_adder
+INPUTS a, b Cin
+OUTPUTS Sum, Cout
+
+XOR gate1 IN(a, b) OUT(temp1)
+XOR gate2 IN(temp1, Cin) OUT(Sum)
+
+AND gate3 IN(temp1, Cin) OUT(temp1)
+AND gate4 IN(a, b) OUT(temp2)
+OR gate5 IN(temp1, temp2) OUT(Cout)
+
+END
+INPUTS a0, b0, a1, b1, a2, b2, a3, b3, Cin
+OUTPUTS s0, s1, s2, s3, Cout
+
+full_adder IN(a0, b0, Cin) OUT(s0, C0)
+full_adder IN(a1, b1, C0) OUT(s1, C1)
+
+full_adder IN(a2, b2, C1) OUT(s2, C2)
+full_adder IN(a3, b3, C2) OUT(s3, Cout)
