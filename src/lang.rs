@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 use std::fmt::{self};
 
-use clap::builder::TryMapValueParser;
-
 #[derive(Debug, PartialEq, Eq)]
 pub enum TokenKind {
 
